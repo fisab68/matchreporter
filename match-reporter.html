@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Match Reporter">
+<meta name="theme-color" content="#080d14">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%23080d14'/%3E%3Ctext x='90' y='125' font-size='100' text-anchor='middle'%3E🏑%3C/text%3E%3C/svg%3E">
+<title>Match Reporter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:    #080d14;
+    --surf:  #0f1720;
+    --surf2: #162030;
+    --bdr:   #1d2d42;
+    --text:  #ddeeff;
+    --dim:   #5a7a99;
+    --green: #00e676;
+    --red:   #ff3d5a;
+    --amber: #ffab40;
+    --blue:  #29b6f6;
+    --gold:  #ffd54f;
+    --flash: #00ffaa;
+    --r:     14px;
+    --rsm:   9px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    user-select: none; -webkit-user-select: none;
+  }
+
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: 0.5;
+  }
+
+  /* ── SCREEN SYSTEM ── */
+  .screen {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column;
+    opacity: 1; transform: translateY(0);
+    transition: opacity 0.22s, transform 0.22s;
+  }
+  .screen.hidden {
+    display: none;
+  }
+
+  /* ════════════════════════════════════════
+     MAIN SCREEN
+  ════════════════════════════════════════ */
+  #main-screen { padding: 10px 10px 8px; gap: 8px; }
+
+  /* ── SCOREBOARD ── */
+  #scoreboard {
+    background: var(--surf); border: 1px solid var(--bdr);
+    border-radius: var(--r); padding: 10px 14px 8px;
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    align-items: center; gap: 8px;
+    flex-shrink: 0; position: relative; overflow: hidden;
+  }
+  #scoreboard::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--blue), transparent);
+    opacity: 0.55;
+  }
+
+  .team-side { display: flex; flex-direction: column; gap: 2px; }
+  .team-side.us   { align-items: flex-start; }
+  .team-side.them { align-items: flex-end; }
+
+  .team-label {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--dim); max-width: 95px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .score-display { display: flex; align-items: baseline; gap: 5px; }
+  .team-side.them .score-display { flex-direction: row-reverse; }
+
+  .score-gaf {
+    font-family: 'Bebas Neue', sans-serif; font-size: 40px;
+    line-height: 1; letter-spacing: 2px; color: var(--text); transition: color 0.15s;
+  }
+  .score-pts {
+    font-family: 'DM Mono', monospace; font-size: 18px;
+    line-height: 1; color: var(--dim); transition: color 0.15s;
+  }
+  .score-gaf.flash, .score-pts.flash { color: var(--flash); }
+
+  #clock-col { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  #half-label { font-size: 9px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--blue); }
+  #clock-row { display: flex; align-items: center; gap: 5px; }
+  #match-clock {
+    font-family: 'Bebas Neue', sans-serif; font-size: 32px;
+    letter-spacing: 2px; color: var(--text); line-height: 1;
+    min-width: 76px; text-align: center; transition: color 0.2s;
+  }
+  #match-clock.paused { color: var(--amber); }
+  .clock-adj {
+    font-family: 'DM Mono', monospace; font-size: 9px; font-weight: 500;
+    padding: 6px; border-radius: 7px;
+    border: 1.5px solid rgba(90,122,153,0.25); background: rgba(90,122,153,0.08);
+    color: var(--dim); cursor: pointer; transition: all 0.12s; white-space: nowrap; line-height: 1;
+  }
+  .clock-adj:active { transform: scale(0.85); }
+  .clock-adj.minus:active { background: rgba(255,61,90,0.2); border-color: rgba(255,61,90,0.5); color: var(--red); }
+  .clock-adj.plus:active  { background: rgba(0,230,118,0.2); border-color: rgba(0,230,118,0.5); color: var(--green); }
+  .clock-adj.off { opacity: 0.2; pointer-events: none; }
+  #game-status { font-size: 9px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+
+  /* sport badge */
+  #sport-badge {
+    display: inline-block; font-size: 8px; font-weight: 800;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 4px;
+    background: rgba(41,182,246,0.12); border: 1px solid rgba(41,182,246,0.3);
+    color: var(--blue); margin-bottom: 2px;
+  }
+  body.football #sport-badge {
+    background: rgba(255,213,79,0.12); border-color: rgba(255,213,79,0.3); color: var(--gold);
+  }
+
+  /* ── HALF PILLS ── */
+  #half-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex-shrink: 0; }
+  .half-pill {
+    background: var(--surf2); border: 1.5px solid var(--bdr);
+    border-radius: var(--rsm); padding: 9px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: all 0.3s; pointer-events: none;
+  }
+  .half-pill .hp-label { font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--dim); transition: color 0.3s; }
+  .half-pill .hp-score { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; color: transparent; transition: color 0.3s; }
+  .half-pill.active { background: rgba(41,182,246,0.12); border-color: rgba(41,182,246,0.55); box-shadow: 0 0 18px rgba(41,182,246,0.18); }
+  .half-pill.active .hp-label { color: var(--blue); }
+  .half-pill.active .hp-score { color: rgba(41,182,246,0.7); }
+  .half-pill.done { border-color: rgba(41,182,246,0.2); }
+  .half-pill.done .hp-label { color: rgba(41,182,246,0.4); }
+  .half-pill.done .hp-score { color: rgba(41,182,246,0.5); }
+
+  /* ── MATCH TITLE STRIP ── */
+  #match-title-strip {
+    text-align: center; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--dim); flex-shrink: 0; display: none;
+  }
+  #match-title-strip.visible { display: block; }
+
+  /* ── PANELS ── */
+  #panels { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: 1; min-height: 0; }
+
+  .team-panel {
+    background: var(--surf); border: 1.5px solid var(--bdr);
+    border-radius: var(--r); display: flex; flex-direction: column;
+    padding: 10px; gap: 8px; position: relative; overflow: hidden;
+  }
+  .team-panel.us::after {
+    content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 3px;
+    background: linear-gradient(180deg, var(--green), transparent);
+  }
+  .team-panel.them::after {
+    content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 3px;
+    background: linear-gradient(180deg, var(--red), transparent);
+  }
+
+  .panel-header {
+    text-align: center; font-size: 10px; font-weight: 800;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .team-panel.us   .panel-header { color: var(--green); }
+  .team-panel.them .panel-header { color: var(--red); }
+
+  /* Score buttons */
+  .score-btn {
+    flex: 1; border-radius: 11px; border: 1.5px solid; cursor: pointer;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 3px; position: relative; overflow: hidden;
+    transition: transform 0.12s cubic-bezier(0.34,1.56,0.64,1);
+    padding: 6px 4px; min-height: 0;
+  }
+  .score-btn::after {
+    content: ''; position: absolute; inset: 0;
+    background: var(--flash); opacity: 0;
+    border-radius: inherit; pointer-events: none; transition: opacity 0.05s;
+  }
+  .score-btn.flashing::after { opacity: 0.28; }
+
+  .btn-point-us   { background: linear-gradient(160deg,#0a2010,#061508); border-color:#1a4a25; }
+  .btn-2pt-us     { background: linear-gradient(160deg,#181200,#100d00); border-color: rgba(255,213,79,0.28); }
+  .btn-goal-us    { background: linear-gradient(160deg,#0d2a10,#081a09); border-color:#265c2a; }
+  .btn-point-them { background: linear-gradient(160deg,#200a0a,#150606); border-color:#4a1a1a; }
+  .btn-2pt-them   { background: linear-gradient(160deg,#181200,#100d00); border-color: rgba(255,213,79,0.28); }
+  .btn-goal-them  { background: linear-gradient(160deg,#280808,#180505); border-color:#5c2222; }
+
+  .btn-count { font-family: 'Bebas Neue', sans-serif; font-size: 46px; line-height: 1; letter-spacing: 1px; }
+  .btn-label { font-size: 10px; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; line-height: 1; }
+
+  .btn-point-us .btn-count, .btn-goal-us .btn-count { color: var(--green); }
+  .btn-point-us .btn-label, .btn-goal-us .btn-label { color: rgba(0,230,118,0.6); }
+
+  .btn-point-them .btn-count, .btn-goal-them .btn-count { color: var(--red); }
+  .btn-point-them .btn-label, .btn-goal-them .btn-label { color: rgba(255,61,90,0.6); }
+
+  .btn-2pt-us .btn-count, .btn-2pt-them .btn-count { color: var(--gold); }
+  .btn-2pt-us .btn-label, .btn-2pt-them .btn-label { color: rgba(255,213,79,0.75); }
+
+  /* football-only buttons hidden by default, shown via body class */
+  .football-only { display: none !important; }
+  body.football .football-only { display: flex !important; }
+
+  /* Ripple */
+  .ripple {
+    position: absolute; border-radius: 50%;
+    background: rgba(255,255,255,0.22); transform: scale(0);
+    animation: ripple-anim 0.45s ease-out forwards; pointer-events: none;
+  }
+  @keyframes ripple-anim {
+    0%   { transform: scale(0); opacity: 1; }
+    100% { transform: scale(4); opacity: 0; }
+  }
+
+  /* ── BOTTOM ROW ── */
+  #bottom-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; flex-shrink: 0; }
+  .action-btn {
+    padding: 13px 4px; border-radius: var(--rsm);
+    font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 800;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: pointer; border: 1.5px solid;
+    transition: all 0.18s; text-align: center; line-height: 1.3;
+  }
+  .action-btn:active { opacity: 0.7; transform: scale(0.95); }
+
+  #flow-btn    { background: rgba(0,230,118,0.13);  border-color: rgba(0,230,118,0.45);  color: var(--green); }
+  #pause-btn   { background: rgba(255,171,64,0.12); border-color: rgba(255,171,64,0.4);  color: var(--amber); }
+  #pause-btn.resuming { background: rgba(0,230,118,0.14); border-color: rgba(0,230,118,0.45); color: var(--green); }
+  #pause-btn.off { background: rgba(90,122,153,0.07); border-color: rgba(90,122,153,0.18); color: rgba(90,122,153,0.35); pointer-events: none; }
+  #undo-btn    { background: rgba(255,61,90,0.11);  border-color: rgba(255,61,90,0.38);  color: var(--red); }
+  #settings-btn { background: rgba(90,122,153,0.1); border-color: rgba(90,122,153,0.28); color: var(--dim); }
+  #flow-btn.long-pressing { box-shadow: 0 0 0 3px rgba(255,61,90,0.5); }
+
+  /* ════════════════════════════════════════
+     SETTINGS SCREEN
+  ════════════════════════════════════════ */
+  #settings-screen {
+    background: var(--bg); z-index: 20;
+    overflow: hidden;
+  }
+
+  .settings-header {
+    background: var(--surf); border-bottom: 1px solid var(--bdr);
+    padding: 16px 20px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .settings-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 28px;
+    letter-spacing: 0.1em; color: var(--text);
+  }
+  .close-btn {
+    background: var(--surf2); border: 1.5px solid var(--bdr);
+    border-radius: 8px; padding: 8px 16px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--dim); cursor: pointer; transition: all 0.15s;
+  }
+  .close-btn:active { transform: scale(0.93); opacity: 0.75; }
+
+  .settings-body {
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: 20px 16px;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  .settings-section {
+    background: var(--surf); border: 1px solid var(--bdr);
+    border-radius: var(--r); overflow: hidden;
+    flex-shrink: 0;
+  }
+  .section-label {
+    padding: 12px 16px 10px; font-size: 9px; font-weight: 800;
+    letter-spacing: 0.25em; text-transform: uppercase;
+    color: var(--dim); border-bottom: 1px solid var(--bdr);
+    background: var(--surf2);
+  }
+  .settings-row {
+    display: flex; align-items: flex-start;
+    flex-direction: column;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(29,45,66,0.55); gap: 10px;
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row-label { font-size: 14px; font-weight: 600; color: var(--text); width: 100%; }
+  .settings-row-sub { font-size: 11px; font-weight: 400; color: var(--dim); display: block; margin-top: 2px; }
+
+  .settings-input {
+    background: var(--surf2); border: 1.5px solid var(--bdr);
+    border-radius: 8px; padding: 12px 14px;
+    font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 500;
+    color: var(--text); width: 100%; outline: none;
+    transition: border-color 0.2s; -webkit-appearance: none;
+    user-select: text; -webkit-user-select: text;
+    display: block;
+  }
+  .settings-input::placeholder { color: var(--dim); opacity: 0.55; }
+  .settings-input:focus { border-color: var(--blue); }
+
+  /* Sport toggle */
+  .sport-toggle {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; width: 100%;
+  }
+  .sport-opt {
+    padding: 14px 8px; border-radius: 9px; border: 1.5px solid var(--bdr);
+    background: var(--surf2); font-size: 14px; font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--dim); text-align: center; cursor: pointer; transition: all 0.18s;
+    display: block;
+  }
+  .sport-opt:active { transform: scale(0.95); }
+  .sport-opt.sel-hurling  { background: rgba(41,182,246,0.14); border-color: rgba(41,182,246,0.55); color: var(--blue); }
+  .sport-opt.sel-football { background: rgba(255,213,79,0.12); border-color: rgba(255,213,79,0.5);  color: var(--gold); }
+
+  /* Google account row */
+  .google-btn {
+    width: 100%; padding: 12px 16px;
+    border-radius: 9px; border: 1.5px solid var(--bdr);
+    background: var(--surf2);
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer; transition: all 0.18s; text-align: left;
+  }
+  .google-btn:active { transform: scale(0.97); opacity: 0.8; }
+  .google-btn.connected { border-color: rgba(0,230,118,0.45); background: rgba(0,230,118,0.07); }
+  .google-btn.error     { border-color: rgba(255,61,90,0.45);  background: rgba(255,61,90,0.07); }
+
+  .google-icon {
+    width: 28px; height: 28px; flex-shrink: 0;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; background: #fff;
+  }
+  .google-btn-text { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+  .google-btn-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .google-btn-sub   { font-size: 11px; color: var(--dim); }
+  .google-btn.connected .google-btn-title { color: var(--green); }
+  .google-btn.error     .google-btn-title { color: var(--red); }
+
+  .google-status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--dim); flex-shrink: 0; transition: background 0.3s;
+  }
+  .google-btn.connected .google-status-dot { background: var(--green); box-shadow: 0 0 6px rgba(0,230,118,0.6); }
+  .google-btn.error     .google-status-dot { background: var(--red); }
+
+  /* Sheets status bar on main screen */
+  #sheets-status {
+    display: none; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: var(--rsm);
+    background: rgba(0,230,118,0.08); border: 1px solid rgba(0,230,118,0.25);
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--green); flex-shrink: 0;
+  }
+  #sheets-status.visible { display: flex; }
+  #sheets-status.syncing { border-color: rgba(255,171,64,0.35); background: rgba(255,171,64,0.08); color: var(--amber); }
+  #sheets-status.error   { border-color: rgba(255,61,90,0.35);  background: rgba(255,61,90,0.08);  color: var(--red); }
+  .ss-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+    animation: ss-pulse 1.8s ease-in-out infinite;
+  }
+  #sheets-status.syncing .ss-dot { animation: ss-pulse 0.7s ease-in-out infinite; }
+  #sheets-status:not(.syncing) .ss-dot { animation: none; }
+  @keyframes ss-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* Settings footer */
+  .settings-footer { padding: 14px 16px; flex-shrink: 0; border-top: 1px solid var(--bdr); }
+  .save-btn {
+    width: 100%; padding: 16px; border-radius: var(--r);
+    background: rgba(0,230,118,0.14); border: 1.5px solid rgba(0,230,118,0.5);
+    color: var(--green); font-family: 'DM Sans', sans-serif;
+    font-size: 15px; font-weight: 800; letter-spacing: 0.1em;
+    text-transform: uppercase; cursor: pointer; transition: all 0.18s;
+  }
+  .save-btn:active { transform: scale(0.97); opacity: 0.8; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 80px; left: 50%;
+    transform: translateX(-50%) translateY(14px);
+    background: var(--surf2); border: 1px solid var(--bdr);
+    border-radius: 30px; padding: 8px 22px;
+    font-size: 13px; font-weight: 600; color: var(--dim);
+    opacity: 0; transition: all 0.22s; z-index: 999;
+    white-space: nowrap; pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── CONFIRM ── */
+  #confirm-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85); z-index: 500;
+    align-items: center; justify-content: center;
+    padding: 24px; backdrop-filter: blur(8px);
+  }
+  #confirm-overlay.visible { display: flex; }
+  #confirm-box {
+    background: var(--surf); border: 1px solid var(--bdr);
+    border-radius: 20px; padding: 28px 24px;
+    max-width: 340px; width: 100%; text-align: center;
+  }
+  #confirm-box h3 { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 2px; margin-bottom: 10px; }
+  #confirm-box p  { font-size: 14px; color: var(--dim); line-height: 1.5; margin-bottom: 22px; }
+  .confirm-btns { display: flex; gap: 10px; }
+  .confirm-btns button {
+    flex: 1; padding: 14px; border-radius: var(--rsm);
+    font-size: 13px; font-weight: 800; letter-spacing: 1px;
+    text-transform: uppercase; cursor: pointer; border: 1.5px solid;
+  }
+  #confirm-yes { background: var(--green); border-color: var(--green); color: #000; }
+  #confirm-yes.danger { background: var(--red); border-color: var(--red); color: #fff; }
+  #confirm-no  { background: var(--surf2); border-color: var(--bdr); color: var(--text); }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════
+     MAIN SCREEN
+════════════════════════════════════════════ -->
+<div id="main-screen" class="screen">
+
+  <!-- SCOREBOARD -->
+  <div id="scoreboard">
+    <div class="team-side us">
+      <div id="sport-badge">Hurling</div>
+      <div class="team-label" id="lbl-us">Ballinora</div>
+      <div class="score-display">
+        <div class="score-gaf" id="score-us">0-00</div>
+        <div class="score-pts" id="score-us-pts">(0)</div>
+      </div>
+    </div>
+
+    <div id="clock-col">
+      <div id="half-label">Pre-Match</div>
+      <div id="clock-row">
+        <button class="clock-adj minus off" id="clock-minus" onclick="adjustClock(-30)">−30s</button>
+        <div id="match-clock">00:00</div>
+        <button class="clock-adj plus  off" id="clock-plus"  onclick="adjustClock(+30)">+30s</button>
+      </div>
+      <div id="game-status">Long-press Start to reset</div>
+    </div>
+
+    <div class="team-side them">
+      <div style="height:18px;"></div><!-- spacer to align with badge -->
+      <div class="team-label" id="lbl-them" style="text-align:right;">Opposition</div>
+      <div class="score-display">
+        <div class="score-pts" id="score-them-pts">(0)</div>
+        <div class="score-gaf" id="score-them">0-00</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HALF PILLS -->
+  <div id="half-row">
+    <div class="half-pill" id="pill-1">
+      <span class="hp-label">Half 1</span>
+      <span class="hp-score" id="h1-score"></span>
+    </div>
+    <div class="half-pill" id="pill-2">
+      <span class="hp-label">Half 2</span>
+      <span class="hp-score" id="h2-score"></span>
+    </div>
+  </div>
+
+  <!-- SHEETS SYNC STATUS -->
+  <div id="sheets-status">
+    <span class="ss-dot"></span>
+    <span id="sheets-status-text">Sheets Connected</span>
+  </div>
+
+  <!-- MATCH TITLE STRIP -->
+  <div id="match-title-strip"></div>
+
+  <!-- PANELS -->
+  <div id="panels">
+
+    <!-- US -->
+    <div class="team-panel us">
+      <div class="panel-header" id="ph-us">Ballinora</div>
+
+      <button class="score-btn btn-point-us"
+              data-team="us" data-type="point" data-val="1"
+              onclick="recordScore(this,event)">
+        <span class="btn-count" id="c-us-point">0</span>
+        <span class="btn-label">Point</span>
+      </button>
+
+      <button class="score-btn btn-2pt-us football-only"
+              data-team="us" data-type="2pointer" data-val="2"
+              onclick="recordScore(this,event)">
+        <span class="btn-count" id="c-us-2pt">0</span>
+        <span class="btn-label">2 Pointer</span>
+      </button>
+
+      <button class="score-btn btn-goal-us"
+              data-team="us" data-type="goal" data-val="3"
+              onclick="recordScore(this,event)">
+        <span class="btn-count" id="c-us-goal">0</span>
+        <span class="btn-label">Goal</span>
+      </button>
+    </div>
+
+    <!-- THEM -->
+    <div class="team-panel them">
+      <div class="panel-header" id="ph-them">Opposition</div>
+
+      <button class="score-btn btn-point-them"
+              data-team="them" data-type="point" data-val="1"
+              onclick="recordScore(this,event)">
+        <span class="btn-count" id="c-them-point">0</span>
+        <span class="btn-label">Point</span>
+      </button>
+
+      <button class="score-btn btn-2pt-them football-only"
+              data-team="them" data-type="2pointer" data-val="2"
+              onclick="recordScore(this,event)">
+        <span class="btn-count" id="c-them-2pt">0</span>
+        <span class="btn-label">2 Pointer</span>
+      </button>
+
+      <button class="score-btn btn-goal-them"
+              data-team="them" data-type="goal" data-val="3"
+              onclick="recordScore(this,event)">
+        <span class="btn-count" id="c-them-goal">0</span>
+        <span class="btn-label">Goal</span>
+      </button>
+    </div>
+
+  </div><!-- /panels -->
+
+  <!-- BOTTOM ROW -->
+  <div id="bottom-row">
+    <button class="action-btn" id="flow-btn"    onclick="advanceFlow()">▶ Start</button>
+    <button class="action-btn off" id="pause-btn" onclick="togglePause()">⏸ Pause</button>
+    <button class="action-btn" id="undo-btn"    onclick="undoLast()">↩ Undo</button>
+    <button class="action-btn" id="settings-btn" onclick="openSettings()">⚙ Settings</button>
+  </div>
+
+</div><!-- /main-screen -->
+
+
+<!-- ════════════════════════════════════════════
+     SETTINGS SCREEN
+════════════════════════════════════════════ -->
+<div id="settings-screen" class="screen hidden">
+
+  <div class="settings-header">
+    <div class="settings-title">Settings</div>
+    <button class="close-btn" onclick="closeSettings()">✕ Close</button>
+  </div>
+
+  <div class="settings-body">
+
+    <!-- Google Sheets -->
+    <div class="settings-section">
+      <div class="section-label">Google Sheets</div>
+      <div class="settings-row">
+        <div class="settings-row-label">
+          Web App URL
+          <span class="settings-row-sub">Paste the URL from your Apps Script deployment</span>
+        </div>
+        <input class="settings-input" id="inp-webapp-url" type="url"
+          placeholder="https://script.google.com/macros/s/..."
+          autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-label">
+          Connection
+          <span class="settings-row-sub">Test that the Web App URL is reachable</span>
+        </div>
+        <button class="google-btn" id="test-conn-btn" onclick="testConnection()">
+          <div class="google-icon">📋</div>
+          <div class="google-btn-text">
+            <span class="google-btn-title" id="conn-btn-title">Test Connection</span>
+            <span class="google-btn-sub"   id="conn-btn-sub">Not tested yet</span>
+          </div>
+          <div class="google-status-dot"></div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Match Info -->
+    <div class="settings-section">
+      <div class="section-label">Match Info</div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          Match Title
+          <span class="settings-row-sub">Shown as a strip below the half indicators</span>
+        </div>
+        <input class="settings-input" id="inp-title" type="text"
+          placeholder="e.g. Premier Intermediate Championship"
+          autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          Opposition Team Name
+          <span class="settings-row-sub">Replaces "Opposition" throughout the app</span>
+        </div>
+        <input class="settings-input" id="inp-opp" type="text"
+          placeholder="e.g. Éire Óg"
+          autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+    </div>
+
+    <!-- Sport -->
+    <div class="settings-section">
+      <div class="section-label">Sport</div>
+      <div class="settings-row">
+        <div class="settings-row-label">
+          Select Sport
+          <span class="settings-row-sub">Football adds a gold "2 Pointer" button between Point and Goal</span>
+        </div>
+        <div class="sport-toggle">
+          <div class="sport-opt sel-hurling" id="opt-hurling"  onclick="pickSport('hurling')">🏑 Hurling</div>
+          <div class="sport-opt"             id="opt-football" onclick="pickSport('football')">⚽ Football</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- About -->
+    <div class="settings-section">
+      <div class="section-label">About</div>
+      <div class="settings-row">
+        <div class="settings-row-label">
+          Home Team
+          <span class="settings-row-sub">Always Ballinora</span>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-label">
+          Version
+          <span class="settings-row-sub">Match Reporter v1.1</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /settings-body -->
+
+  <div class="settings-footer">
+    <button class="save-btn" onclick="saveSettings()">Save &amp; Return to Match</button>
+  </div>
+
+</div><!-- /settings-screen -->
+
+
+<!-- CONFIRM DIALOG -->
+<div id="confirm-overlay">
+  <div id="confirm-box">
+    <h3 id="confirm-title">Sure?</h3>
+    <p  id="confirm-msg">This cannot be undone.</p>
+    <div class="confirm-btns">
+      <button id="confirm-yes" onclick="doConfirm()">Confirm</button>
+      <button id="confirm-no"  onclick="closeConfirm()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── KEYS
+const LOG_KEY   = 'mr_log_v2';
+const STATE_KEY = 'mr_state_v2';
+const CFG_KEY   = 'mr_cfg_v4';
+const H_SECS    = 35 * 60;
+
+// ── STATE
+let log = [];
+let state = {
+  flow: 'pre',
+  h1Start: null, h1End: null, h1Paused: 0,
+  h2Start: null, h2End: null, h2Paused: 0,
+  pausedAt: null
+};
+let cfg = { title: '', opposition: '', sport: 'hurling', webAppUrl: '' };
+
+let pendingFn = null;
+let tickTimer = null;
+let lpTimer   = null;
+let draftSport = 'hurling';
+
+// ── INIT
+function init() {
+  try { log   = JSON.parse(localStorage.getItem(LOG_KEY))   || []; } catch(e) {}
+  try { state = JSON.parse(localStorage.getItem(STATE_KEY)) || state; } catch(e) {}
+  try { const c = JSON.parse(localStorage.getItem(CFG_KEY)); if(c) cfg = {...cfg,...c}; } catch(e) {}
+  applyConfig();
+  setupLongPress();
+  refresh();
+  tickTimer = setInterval(tickClock, 500);
+  // Show sheets status bar if URL already configured
+  if (cfg.webAppUrl) sheetsStatusShow('Sheets connected');
+}
+
+// ── SETTINGS
+function openSettings() {
+  document.getElementById('inp-title').value      = cfg.title;
+  document.getElementById('inp-opp').value        = cfg.opposition;
+  document.getElementById('inp-webapp-url').value = cfg.webAppUrl || '';
+  draftSport = cfg.sport;
+  renderSportToggle();
+  // Reflect current connection state in button
+  if (cfg.webAppUrl) {
+    setConnUI('connected', 'Connected ✓', 'URL saved — tap to re-test');
+  } else {
+    setConnUI('idle', 'Test Connection', 'Not tested yet');
+  }
+  document.getElementById('main-screen').classList.add('hidden');
+  document.getElementById('settings-screen').classList.remove('hidden');
+}
+
+function closeSettings() {
+  document.getElementById('settings-screen').classList.add('hidden');
+  document.getElementById('main-screen').classList.remove('hidden');
+}
+
+function pickSport(s) { draftSport = s; renderSportToggle(); }
+
+function renderSportToggle() {
+  document.getElementById('opt-hurling').className  = 'sport-opt' + (draftSport === 'hurling'  ? ' sel-hurling'  : '');
+  document.getElementById('opt-football').className = 'sport-opt' + (draftSport === 'football' ? ' sel-football' : '');
+}
+
+function saveSettings() {
+  cfg.title      = document.getElementById('inp-title').value.trim();
+  cfg.opposition = document.getElementById('inp-opp').value.trim();
+  cfg.sport      = draftSport;
+  cfg.webAppUrl  = document.getElementById('inp-webapp-url').value.trim();
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  applyConfig();
+  // Show status bar if URL is set
+  if (cfg.webAppUrl) sheetsStatusShow('Sheets connected');
+  else sheetsStatusHide();
+  closeSettings();
+  showToast('Settings saved ✓');
+}
+
+function applyConfig() {
+  const opp = cfg.opposition || 'Opposition';
+
+  // Scoreboard labels
+  document.getElementById('lbl-us').textContent   = 'Ballinora';
+  document.getElementById('lbl-them').textContent  = opp;
+
+  // Panel headers
+  document.getElementById('ph-us').textContent    = 'Ballinora';
+  document.getElementById('ph-them').textContent   = opp;
+
+  // Sport badge + body class (drives football-only CSS)
+  document.getElementById('sport-badge').textContent = cfg.sport === 'football' ? 'Football' : 'Hurling';
+  document.body.classList.toggle('football', cfg.sport === 'football');
+
+  // Match title strip
+  const strip = document.getElementById('match-title-strip');
+  strip.textContent = cfg.title;
+  strip.classList.toggle('visible', !!cfg.title);
+}
+
+// ── TIMING
+function getElapsed(nowMs) {
+  const now = nowMs ?? Date.now();
+  if (state.flow === 'pre') return 0;
+  const fEnd   = (state.flow==='first' && state.pausedAt) ? state.pausedAt : (state.h1End ?? now);
+  const h1s    = state.h1Start ? Math.max(0, Math.floor((fEnd - state.h1Start - state.h1Paused) / 1000)) : 0;
+  if (state.flow==='first' || state.flow==='ht') return h1s;
+  const sEnd   = (state.flow==='second' && state.pausedAt) ? state.pausedAt : (state.h2End ?? now);
+  const h2s    = state.h2Start ? Math.max(0, Math.floor((sEnd - state.h2Start - state.h2Paused) / 1000)) : 0;
+  return H_SECS + h2s;
+}
+
+// ── GAME FLOW
+function advanceFlow() {
+  const f = state.flow;
+  if (f==='pre')    { startGame();    }
+  else if (f==='first')  { endH1();  }
+  else if (f==='ht')     { startH2(); }
+  else if (f==='second') { askEndGame(); }
+  else { showToast('Full Time. Long-press Start to reset.'); }
+}
+
+function startGame() {
+  Object.assign(state, { flow:'first', h1Start:Date.now(), h1End:null, h1Paused:0,
+    h2Start:null, h2End:null, h2Paused:0, pausedAt:null });
+  save(); refresh(); showToast('🏁 Half 1 — underway');
+  sheetsClearData(); // clear previous match data from sheet
+}
+function endH1() {
+  if (state.pausedAt) { state.h1Paused += Date.now()-state.pausedAt; state.pausedAt=null; }
+  state.flow='ht'; state.h1End=Date.now();
+  save(); refresh(); showToast('⏸ Half Time');
+}
+function startH2() {
+  Object.assign(state, { flow:'second', h2Start:Date.now(), h2End:null, h2Paused:0, pausedAt:null });
+  save(); refresh(); showToast('▶ Half 2 — underway');
+}
+function askEndGame() { showConfirm('End Game','Mark match as Full Time?', endGame, false); }
+function endGame() {
+  if (state.pausedAt) { state.h2Paused += Date.now()-state.pausedAt; state.pausedAt=null; }
+  state.flow='ended'; state.h2End=Date.now();
+  save(); refresh(); showToast('⏹ Full Time');
+}
+
+function togglePause() {
+  if (state.flow!=='first' && state.flow!=='second') return;
+  if (state.pausedAt !== null) {
+    const d = Date.now()-state.pausedAt;
+    if (state.flow==='first') state.h1Paused+=d; else state.h2Paused+=d;
+    state.pausedAt=null; save(); refresh(); showToast('▶ Resumed');
+  } else {
+    state.pausedAt=Date.now(); save(); refresh(); showToast('⏸ Paused');
+  }
+}
+
+// Long-press flow btn → new game
+function setupLongPress() {
+  const btn = document.getElementById('flow-btn');
+  const go  = () => { btn.classList.add('long-pressing'); lpTimer=setTimeout(()=>{ btn.classList.remove('long-pressing'); askNewGame(); },850); };
+  const off = () => { clearTimeout(lpTimer); btn.classList.remove('long-pressing'); };
+  btn.addEventListener('touchstart', go,  {passive:true});
+  btn.addEventListener('touchend',   off);
+  btn.addEventListener('touchcancel',off);
+  btn.addEventListener('mousedown',  go);
+  btn.addEventListener('mouseup',    off);
+  btn.addEventListener('mouseleave', off);
+}
+function askNewGame() { showConfirm('New Game','Clear all match data and start fresh?',newGame,true); }
+function newGame() {
+  log=[];
+  state={flow:'pre',h1Start:null,h1End:null,h1Paused:0,h2Start:null,h2End:null,h2Paused:0,pausedAt:null};
+  save(); refresh();
+  sheetsClearData(); // clear the Google Sheet immediately
+  showToast('New game ready — tap ▶ Start');
+}
+
+// ── SCORE RECORDING
+function recordScore(btn, evt) {
+  if (state.pausedAt)           { showToast('Game is paused'); return; }
+  if (state.flow==='ht')        { showToast('Half Time — tap ▶ Half 2'); return; }
+  if (state.flow==='ended')     { showToast('Full Time'); return; }
+  if (state.flow==='pre')       { startGame(); }
+
+  const now   = Date.now();
+  const secs  = getElapsed(now);
+  const half  = state.flow==='first' ? 1 : 2;
+  const hs    = half===1 ? secs : secs - H_SECS;
+  const mm    = String(Math.floor(hs/60)).padStart(2,'0');
+  const ss    = String(hs%60).padStart(2,'0');
+  const val   = parseInt(btn.dataset.val)||1;
+
+  log.push({ team:btn.dataset.team, type:btn.dataset.type, val, half, secs, ts:now, time:`H${half} ${mm}:${ss}` });
+  save(); animate(btn, evt); refresh();
+
+  // Write to Google Sheets
+  const teamName  = btn.dataset.team === 'us' ? 'Ballinora' : (cfg.opposition || 'Opposition');
+  const halfLabel = `Half ${half}`;
+  const timeLabel = `${mm}:${ss}`;
+  sheetsAppendRow(halfLabel, timeLabel, teamName, scoreLabel(btn.dataset.type), val);
+}
+
+function undoLast() {
+  if (!log.length) { showToast('Nothing to undo'); return; }
+  const last = log.pop(); save();
+  const tl = last.type==='goal' ? 'Goal' : last.type==='2pointer' ? '2 Pointer' : 'Point';
+  const who = last.team==='us' ? 'Ballinora' : (cfg.opposition||'Them');
+  showToast(`↩ Undid ${tl} — ${who} @ ${last.time}`);
+  refresh();
+}
+
+// ── SCORE CALC
+function calcScore(team) {
+  const g = log.filter(e=>e.team===team && e.type==='goal').length;
+  const p = log.filter(e=>e.team===team && e.type==='point').length;
+  const t = log.filter(e=>e.team===team && e.type==='2pointer').length;
+  return { goals:g, points:p, twos:t, total:g*3+p+t*2 };
+}
+function calcHalfTotal(team, half) {
+  return log.filter(e=>e.team===team && e.half===half)
+            .reduce((s,e)=> s + (e.type==='goal'?3 : e.type==='2pointer'?2 : 1), 0);
+}
+
+// ── CLOCK
+function adjustClock(delta) {
+  const ok = ['first','second','ht'].includes(state.flow);
+  if (!ok) return;
+  const ms = delta*1000;
+  if      (state.flow==='first')  { state.h1Start-=ms; if(getElapsed()<0) state.h1Start+=ms; }
+  else if (state.flow==='ht')     { state.h1End=(state.h1End||Date.now())+ms; if(getElapsed()<0) state.h1End-=ms; }
+  else                            { state.h2Start-=ms; if(getElapsed()<H_SECS) state.h2Start+=ms; }
+  save(); tickClock();
+  showToast(`Clock ${delta>0?'+':''}${delta}s → ${document.getElementById('match-clock').textContent}`);
+}
+
+function tickClock() {
+  const cl  = document.getElementById('match-clock');
+  const st  = document.getElementById('game-status');
+  const hl  = document.getElementById('half-label');
+  const ips = state.pausedAt!==null;
+  const ok  = ['first','second','ht'].includes(state.flow);
+
+  document.getElementById('clock-minus').classList.toggle('off',!ok);
+  document.getElementById('clock-plus').classList.toggle('off',!ok);
+
+  if (state.flow==='pre') {
+    cl.textContent='00:00'; cl.classList.remove('paused');
+    hl.textContent='Pre-Match'; st.textContent='Long-press Start to reset';
+    updatePills(); return;
+  }
+
+  const total = getElapsed();
+  const half  = (state.flow==='first'||state.flow==='ht') ? 1 : 2;
+  const disp  = half===1 ? total : total-H_SECS;
+  const mm = String(Math.floor(Math.max(0,disp)/60)).padStart(2,'0');
+  const ss = String(Math.max(0,disp)%60).padStart(2,'0');
+  cl.textContent=`${mm}:${ss}`;
+
+  if      (state.flow==='ht')    { cl.classList.add('paused');    hl.textContent='Half Time'; st.textContent='Half Time'; }
+  else if (state.flow==='ended') { cl.classList.remove('paused'); hl.textContent='Full Time'; st.textContent='Full Time'; }
+  else if (ips)                  { cl.classList.add('paused');    hl.textContent=`Half ${half}`; st.textContent='Paused'; }
+  else                           { cl.classList.remove('paused'); hl.textContent=`Half ${half}`; st.textContent='Live'; }
+  updatePills();
+}
+
+function updatePills() {
+  const p1 = document.getElementById('pill-1');
+  const p2 = document.getElementById('pill-2');
+  const s1 = document.getElementById('h1-score');
+  const s2 = document.getElementById('h2-score');
+
+  const h1a = state.flow==='first';
+  const h2a = state.flow==='second';
+  const h1d = ['ht','second','ended'].includes(state.flow);
+  const h2d = state.flow==='ended';
+
+  p1.className='half-pill'+(h1a?' active':h1d?' done':'');
+  p2.className='half-pill'+(h2a?' active':h2d?' done':'');
+
+  const hs = h => {
+    const ug = log.filter(e=>e.team==='us'   && e.type==='goal'     && e.half===h).length;
+    const ut = log.filter(e=>e.team==='us'   && e.type==='2pointer' && e.half===h).length;
+    const up = log.filter(e=>e.team==='us'   && e.type==='point'    && e.half===h).length;
+    const tg = log.filter(e=>e.team==='them' && e.type==='goal'     && e.half===h).length;
+    const tt = log.filter(e=>e.team==='them' && e.type==='2pointer' && e.half===h).length;
+    const tp = log.filter(e=>e.team==='them' && e.type==='point'    && e.half===h).length;
+    const uTotal = ug*3 + ut*2 + up;
+    const tTotal = tg*3 + tt*2 + tp;
+    return `${uTotal}–${tTotal}`;
+  };
+  s1.textContent = (h1d||h1a) ? hs(1) : '';
+  s2.textContent = (h2d||h2a) ? hs(2) : '';
+}
+
+// ── FULL REFRESH
+function refresh() {
+  // button counts
+  document.getElementById('c-us-point').textContent   = log.filter(e=>e.team==='us'   && e.type==='point').length;
+  document.getElementById('c-us-2pt').textContent     = log.filter(e=>e.team==='us'   && e.type==='2pointer').length;
+  document.getElementById('c-us-goal').textContent    = log.filter(e=>e.team==='us'   && e.type==='goal').length;
+  document.getElementById('c-them-point').textContent = log.filter(e=>e.team==='them' && e.type==='point').length;
+  document.getElementById('c-them-2pt').textContent   = log.filter(e=>e.team==='them' && e.type==='2pointer').length;
+  document.getElementById('c-them-goal').textContent  = log.filter(e=>e.team==='them' && e.type==='goal').length;
+
+  // scoreboard
+  const u = calcScore('us');
+  const t = calcScore('them');
+
+  let newU, newT;
+  if (cfg.sport === 'football') {
+    // Format: Goals-2Pointers-Points  e.g. 1-2-05
+    newU = `${u.goals}-${u.twos}-${String(u.points).padStart(2,'0')}`;
+    newT = `${t.goals}-${t.twos}-${String(t.points).padStart(2,'0')}`;
+  } else {
+    // Hurling: Goals-Points  e.g. 1-10
+    newU = `${u.goals}-${String(u.points).padStart(2,'0')}`;
+    newT = `${t.goals}-${String(t.points).padStart(2,'0')}`;
+  }
+
+  const uEl = document.getElementById('score-us');
+  const tEl = document.getElementById('score-them');
+  if (uEl.textContent !== newU) { uEl.textContent=newU; flashEl(uEl); flashEl(document.getElementById('score-us-pts')); }
+  if (tEl.textContent !== newT) { tEl.textContent=newT; flashEl(tEl); flashEl(document.getElementById('score-them-pts')); }
+  document.getElementById('score-us-pts').textContent   = `(${u.total})`;
+  document.getElementById('score-them-pts').textContent = `(${t.total})`;
+
+  // flow btn
+  const fm = {
+    pre:    {l:'▶ Start',      bg:'rgba(0,230,118,0.13)',  bc:'rgba(0,230,118,0.45)',  c:'var(--green)'},
+    first:  {l:'⏸ Half Time',  bg:'rgba(255,171,64,0.12)', bc:'rgba(255,171,64,0.4)',  c:'var(--amber)'},
+    ht:     {l:'▶ Half 2',     bg:'rgba(41,182,246,0.13)', bc:'rgba(41,182,246,0.45)', c:'var(--blue)' },
+    second: {l:'⏹ End Game',   bg:'rgba(255,61,90,0.12)',  bc:'rgba(255,61,90,0.38)',  c:'var(--red)'  },
+    ended:  {l:'— Full Time',  bg:'rgba(90,122,153,0.08)', bc:'rgba(90,122,153,0.2)',  c:'var(--dim)'  },
+  };
+  const f = fm[state.flow];
+  const fb = document.getElementById('flow-btn');
+  fb.textContent=f.l; fb.style.background=f.bg; fb.style.borderColor=f.bc; fb.style.color=f.c;
+
+  // pause btn
+  const pb = document.getElementById('pause-btn');
+  const can = state.flow==='first'||state.flow==='second';
+  if (!can) { pb.className='action-btn off'; pb.textContent='⏸ Pause'; }
+  else if (state.pausedAt) { pb.className='action-btn resuming'; pb.textContent='▶ Resume'; }
+  else {
+    pb.className='action-btn';
+    pb.style.background='rgba(255,171,64,0.12)';
+    pb.style.borderColor='rgba(255,171,64,0.4)';
+    pb.style.color='var(--amber)';
+    pb.textContent='⏸ Pause';
+  }
+
+  tickClock();
+}
+
+// ── ANIMATIONS
+function animate(btn, evt) {
+  btn.classList.add('flashing');
+  setTimeout(()=>btn.classList.remove('flashing'),180);
+  const rect=btn.getBoundingClientRect();
+  const cx=(evt.touches?evt.touches[0].clientX:evt.clientX)-rect.left;
+  const cy=(evt.touches?evt.touches[0].clientY:evt.clientY)-rect.top;
+  const sz=Math.max(rect.width,rect.height);
+  const r=document.createElement('span');
+  r.className='ripple';
+  r.style.cssText=`width:${sz}px;height:${sz}px;left:${cx-sz/2}px;top:${cy-sz/2}px`;
+  btn.appendChild(r); setTimeout(()=>r.remove(),500);
+  btn.style.transform='scale(0.88)';
+  setTimeout(()=>{btn.style.transform='scale(1.05)';},100);
+  setTimeout(()=>{btn.style.transform='';},220);
+  if(navigator.vibrate) navigator.vibrate(20);
+}
+function flashEl(el) { el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),350); }
+
+// ── CONFIRM
+function showConfirm(title, msg, fn, danger) {
+  document.getElementById('confirm-title').textContent=title;
+  document.getElementById('confirm-msg').textContent=msg;
+  document.getElementById('confirm-yes').className=danger?'danger':'';
+  pendingFn=fn;
+  document.getElementById('confirm-overlay').classList.add('visible');
+}
+function doConfirm()    { closeConfirm(); if(pendingFn){pendingFn();pendingFn=null;} }
+function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('visible'); }
+
+// ── TOAST
+let toastT=null;
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+// ── PERSIST
+function save() {
+  localStorage.setItem(LOG_KEY,   JSON.stringify(log));
+  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+}
+
+// ════════════════════════════════════════════
+// GOOGLE SHEETS — Apps Script Web App
+// ════════════════════════════════════════════
+
+// Send any action to the Web App
+async function sheetsRequest(action, data = {}) {
+  const url = cfg.webAppUrl;
+  if (!url) return;
+
+  sheetsStatusShow('Syncing…', 'syncing');
+  try {
+    const body = JSON.stringify({ action, ...data });
+    // mode: 'no-cors' is required for Apps Script Web Apps called from a browser.
+    // It means we cannot read the response body, but the request goes through.
+    await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body
+    });
+    sheetsStatusShow('Sheets connected');
+  } catch(e) {
+    sheetsStatusShow('Sync error', 'error');
+    showToast('Sheet unreachable — score saved locally');
+  }
+}
+
+function sheetsClearData() {
+  if (!cfg.webAppUrl) return;
+  sheetsRequest('clear');
+}
+
+function sheetsAppendRow(half, time, team, scoreLbl, value) {
+  if (!cfg.webAppUrl) return;
+  sheetsRequest('append', { half, time, team, score: scoreLbl, value });
+}
+
+// Test connection — use a GET request so we CAN read the response (no CORS issue with GET)
+async function testConnection() {
+  const url = document.getElementById('inp-webapp-url').value.trim();
+  if (!url) { showToast('Paste your Web App URL first'); return; }
+  setConnUI('syncing', 'Testing…', 'Contacting sheet…');
+  try {
+    const resp = await fetch(url, { method: 'GET', mode: 'cors' });
+    const text = await resp.text();
+    if (resp.ok) {
+      setConnUI('connected', 'Connected ✓', 'Web App is reachable');
+    } else {
+      setConnUI('error', 'Error ' + resp.status, text.slice(0, 60));
+    }
+  } catch(e) {
+    // GET also blocked? Try no-cors — if the script exists, fetch won't throw
+    try {
+      await fetch(url, { method: 'GET', mode: 'no-cors' });
+      // If we get here without throwing, the URL exists and is reachable
+      setConnUI('connected', 'Connected ✓', 'Web App is reachable');
+    } catch(e2) {
+      setConnUI('error', 'Unreachable', 'Check the URL is correct and deployed');
+    }
+  }
+}
+
+function setConnUI(status, title, sub) {
+  const btn = document.getElementById('test-conn-btn');
+  btn.className = 'google-btn' + (status==='connected' ? ' connected' : status==='error' ? ' error' : '');
+  document.getElementById('conn-btn-title').textContent = title;
+  document.getElementById('conn-btn-sub').textContent   = sub || '';
+}
+
+function sheetsStatusShow(text, type) {
+  const el = document.getElementById('sheets-status');
+  el.className = 'visible' + (type ? ` ${type}` : '');
+  document.getElementById('sheets-status-text').textContent = text || 'Sheets connected';
+}
+function sheetsStatusHide() {
+  document.getElementById('sheets-status').className = '';
+}
+
+function scoreLabel(type) {
+  if (type === 'goal')     return 'Goal Scored';
+  if (type === '2pointer') return '2 Pointer Scored';
+  return 'Point Scored';
+}
+
+init();
+
+// ── SERVICE WORKER (inline blob — no extra file needed)
+if ('serviceWorker' in navigator) {
+  const SW_VERSION = 'mr-v1';
+  const swCode = `
+const CACHE   = '${SW_VERSION}';
+const APP_URL = self.location.href;
+
+// Install: cache this single HTML file
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.add(APP_URL))
+  );
+  self.skipWaiting();
+});
+
+// Activate: remove old caches
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
+});
+
+// Fetch strategy:
+// - Google Sheets / Apps Script requests → network only (must go through)
+// - Google Fonts → network with cache fallback
+// - Everything else (the app itself) → cache first, then network
+self.addEventListener('fetch', e => {
+  const url = e.request.url;
+
+  // Always go to network for sheet writes and font loading
+  if (url.includes('script.google.com') ||
+      url.includes('googleapis.com') ||
+      url.includes('fonts.googleapis.com') ||
+      url.includes('fonts.gstatic.com')) {
+    e.respondWith(fetch(e.request).catch(() => new Response('', { status: 503 })));
+    return;
+  }
+
+  // App shell: cache first
+  e.respondWith(
+    caches.match(e.request).then(cached => {
+      if (cached) return cached;
+      return fetch(e.request).then(resp => {
+        // Cache successful same-origin responses
+        if (resp && resp.status === 200 && resp.type === 'basic') {
+          const clone = resp.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return resp;
+      });
+    })
+  );
+});
+`;
+  const blob = new Blob([swCode], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl, { scope: '/' })
+    .catch(() => {}); // fail silently if blocked
+}
+</script>
+</body>
+</html>
